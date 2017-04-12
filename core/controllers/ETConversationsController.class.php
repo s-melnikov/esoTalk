@@ -116,7 +116,7 @@ public function action_index($channelSlug = false)
 		// Mark as read controls
 		if (ET::$session->user) {
 			$controls->add("markAllAsRead", "<a href='".URL("conversations/markAllAsRead/?token=".ET::$session->token."' id='control-markAllAsRead'><i class='icon-check'></i> ".T("Mark all as read")."</a>"));
-			$controls->add("markListedAsRead", "<a href='".URL("conversations/".sanitizeHTML($channelSlug)."/?search=".urlencode($searchString)."&markAsRead=1&token=".ET::$session->token."' id='control-markListedAsRead'><i class='icon-list'></i> ".T("Mark listed as read")."</a>"));
+			$controls->add("markListedAsRead", "<a href='".URL("conversations/$channelSlug/?search=".urlencode($searchString)."&markAsRead=1&token=".ET::$session->token."' id='control-markListedAsRead'><i class='icon-list'></i> ".T("Mark listed as read")."</a>"));
 		}
 
 		// Add the default gambits to the gambit cloud: gambit text => css class to apply.
@@ -141,9 +141,6 @@ public function action_index($channelSlug = false)
 				T("gambit.has >10 replies") => array("gambit-replies", "icon-comments"),
 				T("gambit.order by replies") => array("gambit-orderByReplies", "icon-list-ol"),
 			),
-			"text" => array(
-				T("gambit.title:")." ?" => array("gambit-title", "icon-font")
-			),
 			"misc" => array(
 				T("gambit.random") => array("gambit-random", "icon-random"),
 				T("gambit.reverse") => array("gambit-reverse", "icon-exchange"),
@@ -165,7 +162,7 @@ public function action_index($channelSlug = false)
 
 		// Construct the gambits menu based on the above arrays.
 		$gambitsMenu = ETFactory::make("menu");
-		$linkPrefix = "conversations/".sanitizeHTML($channelSlug)."/?search=".urlencode(((!empty($searchString) ? $searchString." + " : "")));
+		$linkPrefix = "conversations/".$channelSlug."/?search=".urlencode(((!empty($searchString) ? $searchString." + " : "")));
 
 		foreach ($gambits as $section => $items) {
 			foreach ($items as $gambit => $classes) {
@@ -186,7 +183,7 @@ public function action_index($channelSlug = false)
 
 		// Add meta tags to the header.
 		$this->addToHead("<meta name='keywords' content='".sanitizeHTML(($k = C("esoTalk.meta.keywords")) ? $k : implode(",", $keywords))."'>");
-		$lastKeyword = reset(array_splice($keywords, count($keywords) - 1, 1));
+		list($lastKeyword) = array_splice($keywords, count($keywords) - 1, 1);
 		$this->addToHead("<meta name='description' content='".sanitizeHTML(($d = C("esoTalk.meta.description")) ? $d
 			: sprintf(T("forumDescription"), C("esoTalk.forumTitle"), implode(", ", $keywords), $lastKeyword))."'>");
 
@@ -335,7 +332,7 @@ public function action_markAllAsRead()
 	if ($this->responseType === RESPONSE_TYPE_DEFAULT) $this->redirect(URL("conversations"));
 
 	// For an ajax response, just pretend this is a normal search response.
-	$this->action_index();
+	$this->index();
 }
 
 

@@ -104,7 +104,7 @@ public function get()
 public function firstLine()
 {
 	$this->content = substr($this->content, 0, strpos($this->content, "\n"));
-	
+
 	return $this;
 }
 
@@ -141,7 +141,7 @@ public function closeTags()
 {
 	// Remove any half-opened HTML tags at the end.
 	$this->content = preg_replace('#<[^>]*$#i', "", $this->content);
-	
+
 	// Put all opened tags into an array.
     preg_match_all('#<(?!meta|img|br|hr|input\b)\b([a-z]+)(?: .*)?(?<![/|/ ])>#iU', $this->content, $result);
 	$openedTags = $result[1];
@@ -219,12 +219,11 @@ public function linksCallback($matches)
 {
 	// If we're not doing inline formatting, YouTube embedding is enabled, and this is a YouTube video link,
 	// then return an embed tag.
-	if (!$this->inline and C("esoTalk.format.youtube") and preg_match('%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*(?:\?|&amp;)v=)|youtu\.be/)([^"&?/ ]{11})(?:(?:\?|&amp;)(.*))?%i', $matches[2], $youtube)) {
+	if (!$this->inline and C("esoTalk.format.youtube") and preg_match('%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/ ]{11})%i', $matches[2], $youtube)) {
 		$id = $youtube[1];
-		$options = $youtube[2];
 		$width = 400;
 		$height = 225;
-		return "<iframe class='video' type='text/html' width='$width' height='$height' src='https://www.youtube.com/embed/$id?$options' allowfullscreen frameborder='0'></iframe>";
+		return "<div class='video'><object width='$width' height='$height'><param name='movie' value='//www.youtube.com/v/$id'></param><param name='allowFullScreen' value='true'></param><param name='allowscriptaccess' value='always'></param><embed src='//www.youtube.com/v/$id' type='application/x-shockwave-flash' allowscriptaccess='always' allowfullscreen='true' width='$width' height='$height'></embed></object></div>";
 	}
 
 	return $this->formatLink($matches[1].$matches[2], $matches[0]);
@@ -257,13 +256,13 @@ public function lists()
 	// Convert ordered lists - 1. list item\n 2. list item.
 	// We do this by matching against 2 or more lines which begin with a number, passing them together to a
 	// callback function, and then wrapping each line with <li> tags.
-	$this->content = preg_replace_callback("/(?:^[0-9]+[.)]\s+([^\n]*)(?:\n|$)){2,}/m", function ($matches) {
-		return '</p><ol>'.preg_replace("/^[0-9]+[.)]\s+([^\n]*)(?:\n|$)/m", "<li>$1</li>", trim($matches[0])).'</ol><p>';
+	$this->content = preg_replace_callback("/(?:^[0-9]+[.)]\s+([^\n]*)(?:\n|$)){2,}/m", function($m) {
+		return '</p><ol>' . preg_replace("/^[0-9]+[.)]\s+([^\n]*)(?:\n|$)/m", "<li>$1</li>", trim($m[0])) . '</ol><p>';
 	}, $this->content);
 
 	// Same goes for unordered lists, but with a - or a * instead of a number.
-	$this->content = preg_replace_callback("/(?:^ *[-*]\s*([^\n]*)(?:\n|$)){2,}/m", function ($matches) {
-		return '</p><ul>'.preg_replace("/^ *[-*]\s*([^\n]*)(?:\n|$)/m", "<li>$1</li>", trim($matches[0])).'</ul><p>';
+	$this->content = preg_replace_callback("/(?:^ *[-*]\s*([^\n]*)(?:\n|$)){2,}/m", function($m) {
+		return '</p><ul>' . preg_replace("/^ *[-*]\s*([^\n]*)(?:\n|$)/m", "<li>$1</li>", trim($m[0])) . '</ul><p>';
 	}, $this->content);
 
 	return $this;
@@ -277,15 +276,11 @@ public function lists()
  */
 public function quotes()
 {
-	$self = $this;
-
 	// Starting from the innermost quote, work our way to the outermost, replacing them one-by-one using a
 	// callback function. This is the only simple way to do nested quotes without a lexer.
-	$regexp = "/(.*?)\n?\[quote(?:=(.*?)(]?))?\]\n?(.*?)\n?\[\/quote\]\n{0,2}/is";
+	$regexp = "/(.*?)\n?\[quote(?:=(.*?)(]?))?\]\n?(.*?)\n?\[\/quote\]\n{0,2}/ise";
 	while (preg_match($regexp, $this->content)) {
-		$this->content = preg_replace_callback($regexp, function ($matches) use ($self) {
-			return $matches[1].'</p>'.$self->makeQuote($matches[4], $matches[2].$matches[3]).'<p>';
-		}, $this->content);
+		$this->content = preg_replace($regexp, "'$1</p>'.\$this->makeQuote('$4', '$2$3').'<p>'", $this->content);
 	}
 
 	return $this;
@@ -343,8 +338,9 @@ public function mentions()
 {
 	$this->content = preg_replace_callback(
 		'/(^|[\s,\.:\]])@([^\s[\]]{2,20})\b/iu',
-		function ($matches) {
-			return $matches[1]."<a href='".URL('member/name/'.urlencode(str_replace('&nbsp;', ' ', $matches[2])), true)."' class='link-member'>@".$matches[2]."</a>";
+		function($m) {
+			return $m[1] . '<a href="' . URL('member/name/' . urlencode(str_replace('&nbsp;', ' ', $m[2])), true) .
+			'" class="link-member">@' . $m[2] . '</a>';
 		},
 		$this->content
 	);

@@ -62,7 +62,7 @@ public function action_index()
  * @param string $pane The name of the active pane.
  * @return array The member details.
  */
-public function profile($pane = "")
+protected function profile($pane = "")
 {
 	// Set the page title.
 	$this->title = T("Settings");

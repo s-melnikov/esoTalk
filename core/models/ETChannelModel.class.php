@@ -125,9 +125,6 @@ public function get($permission = "view")
 			unset($channels[$k]);
 	}
 
-	if (empty($channels))
-		return false;
-
 	// Add user data (eg. unsubscribed) into the channel array.
 	$this->joinUserData($channels);
 
@@ -151,8 +148,6 @@ public function joinUserData(&$channels)
 		}
 		return;
 	}
-
-	if (!count($channels)) return;
 
 	// Get the user data from the database for all channel IDs in the array.
 	$result = ET::SQL()
@@ -351,7 +346,7 @@ public function setStatus($channelIds, $memberIds, $data)
 	}
 
 	if (empty($inserts)) return;
-
+	
 	ET::SQL()
 		->insert("member_channel")
 		->setMultiple($keys, $inserts)

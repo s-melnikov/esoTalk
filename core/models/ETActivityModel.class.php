@@ -150,8 +150,6 @@ public function create($type, $member, $fromMember = null, $data = null, $emailD
 
 	}
 
-	$this->trigger("sendNotification", array($activity, $member));
-
 	return $activity["activityId"];
 }
 
@@ -242,8 +240,6 @@ public function getActivity($member, $offset = 0, $limit = 11)
 		->orderBy("time DESC")
 		->limit($offset + $limit);
 	ET::channelModel()->addPermissionPredicate($posts);
-
-	$this->trigger("getActivityBefore", array($member, $activity, $posts));
 
 	// Marry these two queries so we get their activity AND their posts in one resultset.
 	$result = ET::SQL()

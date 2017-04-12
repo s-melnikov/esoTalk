@@ -93,7 +93,7 @@ init: function() {
 
 		// Store the conversation title and add a click handler to edit it.
 		this.title = $("#conversationTitle a").text() || $("#conversationTitle").text();
-		$(document).on("click", "#conversationTitle a", function(e) {
+		$("#conversationTitle a").live("click", function(e) {
 			e.preventDefault();
 			ETConversation.editTitle();
 		});
@@ -220,7 +220,7 @@ initReply: function() {
 	ETConversation.editingReply = false;
 
 	// Auto resize our reply textareas
-	if (!ET.iOS) textarea.TextAreaExpander(200, 700);
+	textarea.TextAreaExpander(200, 700);
 
 	// Disable the "post reply" button if there's not a draft. Disable the save draft button regardless.
 	if (!textarea.val()) $("#reply .postReply").disable();
@@ -450,7 +450,7 @@ saveDraft: function() {
 // Discard a draft.
 discardDraft: function() {
 
-	if (!confirm(T("message.confirmDelete"))) return;
+	if (!confirm(T("message.confirmDiscardPost"))) return;
 
 	// Disable the beforeUnload confirmation prompt, because the ajax request we make may
 	// redirect us back to the home page.
@@ -520,38 +520,38 @@ update: function() {
 initPosts: function() {
 
 	// Add tooltips to post controls.
-	$("#conversationPosts .controls a, #conversationPosts .controls span").tooltip({alignment: "center"});
+	$("#conversationPosts .controls a").tooltip({alignment: "center"});
 	$("#conversationPosts h3 a").tooltip({alignment: "left", className: "withArrow withArrowBottom"});
 	$("#conversationPosts .time").tooltip({alignment: "left", className: "withArrow withArrowBottom"});
 	$("#conversationPosts .online").tooltip({alignment: "left", offset: [-9, 0], className: "withArrow withArrowBottom"}).css("cursor", "pointer");
 
 	// Add click handlers to the post controls.
-	$(document).on("click", "#conversationPosts .controls .control-edit:not(.disabled)", function(e) {
+	$("#conversationPosts .controls .control-edit").live("click", function(e) {
 		var postId = $(this).parents(".post").data("id");
 		ETConversation.editPost(postId);
 		e.preventDefault();
 	});
 
-	$(document).on("click", "#conversationPosts .controls .control-delete:not(.disabled)", function(e) {
+	$("#conversationPosts .controls .control-delete").live("click", function(e) {
 		var postId = $(this).parents(".post").data("id");
 		ETConversation.deletePost(postId);
 		e.preventDefault();
 	});
 
-	$(document).on("click", "#conversationPosts .controls .control-restore", function(e) {
+	$("#conversationPosts .controls .control-restore").live("click", function(e) {
 		var postId = $(this).parents(".post").data("id");
 		ETConversation.restorePost(postId);
 		e.preventDefault();
 	});
 
-	$(document).on("click", "#conversationPosts .post:not(.edit) .controls .control-quote", function(e) {
+	$("#conversationPosts .post:not(.edit) .controls .control-quote").live("click", function(e) {
 		var postId = $(this).parents(".post").data("id");
 		ETConversation.quotePost(postId, e.shiftKey);
 		e.preventDefault();
 	});
 
 	// Add a click handler to any "post links" to scroll back up to the right post, if it's loaded.
-	$(document).on("click", "#conversationPosts .postBody a[rel=post]", function(e) {
+	$("#conversationPosts .postBody a[rel=post]").live("click", function(e) {
 		var id = $(this).data("id");
 
 		$("#conversationPosts .post").each(function() {
@@ -569,12 +569,6 @@ initPosts: function() {
 
 initPost: function(post) {
 	ETConversation.collapseQuotes(post);
-
-	$(post).find('[data-timestamp]').each(function() {
-		$this = $(this);
-		var date = new Date(parseInt($this.data('timestamp')) * 1000);
-		$this.attr('title', date.toLocaleString());
-	})
 },
 
 // Collapse quotes and add expand buttons.
@@ -601,6 +595,9 @@ collapseQuotes: function(items) {
 highlightPost: function(post) {
 	$("#conversationPosts .post.highlight").removeClass("highlight");
 	$(post).addClass("highlight");
+	setTimeout(function() {
+		$(post).removeClass("highlight");
+	}, 2000);
 },
 
 // Hide consecutive avatars from the same member.
@@ -636,7 +633,7 @@ deletePost: function(postId) {
 			hideLoadingOverlay("p" + postId, true);
 		},
 		success: function(data) {
-			if (data.messages || data.modalMessage) return;
+			if (data.messages) return;
 			$("#p"+postId).replaceWith(data.view);
 			ETConversation.redisplayAvatars();
 		}
@@ -658,7 +655,7 @@ restorePost: function(postId) {
 			hideLoadingOverlay("p" + postId, true);
 		},
 		success: function(data) {
-			if (data.messages || data.modalMessage) return;
+			if (data.messages) return;
 			$("#p"+postId).replaceWith(data.view);
 			ETConversation.redisplayAvatars();
 			ETConversation.collapseQuotes($("#p"+postId));
@@ -706,7 +703,7 @@ updateEditPost: function(postId, html) {
 
 	// Set up the text area.
 	var len = textarea.val().length;
-	if (!ET.iOS) textarea.TextAreaExpander(200, 700).focus().selectRange(len, len);
+	textarea.TextAreaExpander(200, 700).focus().selectRange(len, len);
 	new ETAutoCompletePopup(textarea, "@");
 
 	// Add click handlers to the cancel/submit buttons.
@@ -851,8 +848,7 @@ initMembersAllowed: function() {
 	});
 
 	// Add click handlers to each of the names, to remove them.
-	var selector = "#membersAllowedSheet .allowedList .name a";
-	$(document).off("click", selector).on("click", selector, function(e) {
+	$("#membersAllowedSheet .allowedList .name a").die("click").live("click", function(e) {
 		e.preventDefault();
 		ETConversation.removeMember($(this).data("type"), $(this).data("id"));
 	});

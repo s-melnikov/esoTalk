@@ -45,8 +45,7 @@ public function action_name($name = "")
 	$result = ET::SQL()
 		->select("memberId, username")
 		->from("member")
-		->where("username LIKE :name")
-		->bind(":name", $name."%")
+		->where("username", $name)
 		->exec();
 
 	if ($row = $result->firstRow())
@@ -54,7 +53,7 @@ public function action_name($name = "")
 
 	// If we didn't find the member, run the index function with a false argument (which will in turn show
 	// a not found error.)
-	$this->action_index(false);
+	$this->index(false);
 }
 
 
@@ -76,7 +75,7 @@ public function action_index($member = "")
  * @param string $member The member's ID.
  * @return array An array of the member's details, or false if they weren't found.
  */
-public function getMember($memberId)
+protected function getMember($memberId)
 {
 	if (!$memberId or !($member = ET::memberModel()->getById((int)$memberId))) {
 		$this->render404(T("message.memberNotFound"));

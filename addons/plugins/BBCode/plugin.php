@@ -63,32 +63,32 @@ public function handler_conversationController_getEditControls($sender, &$contro
  */
 public function handler_format_beforeFormat($sender)
 {
-	$this->blockFixedContents = array();
-	$this->inlineFixedContents = array();
-	$self = $this;
+
+	$this->blockFixedContents = [];
+	$this->inlineFixedContents = [];
 
 	$regexp = "/(.*)^\s*\[code\]\n?(.*?)\n?\[\/code]$/ims";
+
 	while (preg_match($regexp, $sender->content)) {
 		if ($sender->inline) {
-			$sender->content = preg_replace_callback($regexp, function ($matches) use ($self) {
-				$self->inlineFixedContents[] = $matches[2];
-				return $matches[1].'<code></code>';
+			$sender->content = preg_replace_callback($regexp, function($m) {
+				$this->inlineFixedContents[] = $m[2];
+				return $m[1] . "<code></code>";
 			}, $sender->content);
-		} else {
-			$sender->content = preg_replace_callback($regexp, function ($matches) use ($self) {
-				$self->blockFixedContents[] = $matches[2];
-				return $matches[1].'</p><pre></pre><p>';
+		}	else {
+			$sender->content = preg_replace_callback($regexp, function($m) {
+				$this->blockFixedContents[] = $m[2];
+				return $m[1] . "</p><pre></pre><p>";
 			}, $sender->content);
 		}
 	}
 
 	// Inline-level [fixed] tags will become <code>.
-	$sender->content = preg_replace_callback("/\[code\]\n?(.*?)\n?\[\/code]/is", function ($matches) use ($self) {
-		$self->inlineFixedContents[] = $matches[1];
-		return '<code></code>';
+	$sender->content = preg_replace_callback("/\[code\]\n?(.*?)\n?\[\/code]/is", function($m) {
+		$this->inlineFixedContents[] = $m[1];
+		return "<code></code>";
 	}, $sender->content);
 }
-
 
 /**
  * Add an event handler to the formatter to parse BBCode and format it into HTML.
@@ -105,13 +105,13 @@ public function handler_format_format($sender)
 
 	// Images: [img]url[/img]
 	$replacement = $sender->inline ? "[image]" : "<img src='$1' alt='-image-'/>";
-	$sender->content = preg_replace("/\[img\](https?.*?)\[\/img\]/i", $replacement, $sender->content);
+	$sender->content = preg_replace("/\[img\](.*?)\[\/img\]/i", $replacement, $sender->content);
 
 	// Links with display text: [url=http://url]text[/url]
-	$sender->content = preg_replace_callback("/\[url=(?!\s+)(\w{2,6}:\/\/)?([^\]]*?)\](.*?)\[\/url\]/i", array($this, "linksCallback"), $sender->content);
+	$sender->content = preg_replace_callback("/\[url=(\w{2,6}:\/\/)?([^\]]*?)\](.*?)\[\/url\]/i", array($this, "linksCallback"), $sender->content);
 
 	// Bold: [b]bold text[/b]
-	$sender->content = preg_replace("/\[b\](.*?)\[\/b\]/si", "<b>$1</b>", $sender->content);
+	$sender->content = preg_replace("|\[b\](.*?)\[/b\]|si", "<b>$1</b>", $sender->content);
 
 	// Italics: [i]italic text[/i]
 	$sender->content = preg_replace("/\[i\](.*?)\[\/i\]/si", "<i>$1</i>", $sender->content);
@@ -144,19 +144,15 @@ public function linksCallback($matches)
  */
 public function handler_format_afterFormat($sender)
 {
-	$self = $this;
-
 	// Retrieve the contents of the inline <code> tags from the array in which they are stored.
-	$sender->content = preg_replace_callback("/<code><\/code>/i", function ($matches) use ($self) {
-		return '<code>'.array_shift($self->inlineFixedContents).'</code>';
+	$sender->content = preg_replace_callback("/<code><\/code>/i", function() {
+		return '<code>' . array_shift($this->inlineFixedContents) . '</code>';
 	}, $sender->content);
 
 	// Retrieve the contents of the block <pre> tags from the array in which they are stored.
-	if (!$sender->inline) {
-		$sender->content = preg_replace_callback("/<pre><\/pre>/i", function ($matches) use ($self) {
-			return '<pre>'.array_pop($self->blockFixedContents).'</pre>';
-		}, $sender->content);
-	}
+	if (!$sender->inline) $sender->content = preg_replace_callback("/<pre><\/pre>/i", function() {
+		return '<pre>' . array_pop($this->blockFixedContents) . '</pre>';
+	}, $sender->content);
 }
 
 }

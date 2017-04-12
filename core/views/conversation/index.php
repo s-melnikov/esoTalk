@@ -124,7 +124,7 @@ foreach ($scrubber as $year => $months) {
 		echo "<ul>";
 		foreach ($months as $month) {
 			$selected = ($startFromYear == $year and $startFromMonth == $month) ? " selected" : "";
-			$name = _strftime("%B", mktime(0, 0, 0, $month, 1));
+			$name = strftime("%B", mktime(0, 0, 0, $month, 1));
 			$index = $year.str_pad($month, 2, "0", STR_PAD_LEFT);
 			echo "<li class='scrubber-$index$selected' data-index='$index'><a href='".URL(makeURL("$year/$month"))."'>$name</a></li>";
 		}
@@ -137,7 +137,7 @@ foreach ($scrubber as $year => $months) {
 // Now, with the last 5 months we pulled out before, output a scrubber item for each of them.
 foreach ($recentMonths as $month) {
 	$selected = ($startFromYear == $currentYear and $startFromMonth == $month) ? " selected" : "";
-	$name = _strftime("%B", mktime(0, 0, 0, $month, 1));
+	$name = strftime("%B", mktime(0, 0, 0, $month, 1));
 	$index = $currentYear.str_pad($month, 2, "0", STR_PAD_LEFT);
 	echo "<li class='scrubber-$index$selected' data-index='$index'><a href='".URL(makeURL("$currentYear/$month"))."'>$name</a>";
 	echo "</li>";
@@ -187,7 +187,7 @@ if ($data["controlsMenu"]->count()): ?>
 if (count($conversation["membersAllowedSummary"]) or $conversation["startMemberId"] == ET::$session->userId or $conversation["canModerate"]): ?>
 <div id='conversationPrivacy' class='area'>
 <span class='allowedList action'><?php $this->renderView("conversation/membersAllowedSummary", $data); ?></span>
-<?php if ($conversation["canEditMembersAllowed"]): ?><a href='<?php echo URL("conversation/edit/".$conversation["conversationId"]); ?>' id='control-changeMembersAllowed'><i class='icon-pencil'></i> <?php echo T("Change"); ?></a><?php endif; ?>
+<?php if ($conversation["startMemberId"] == ET::$session->userId): ?><a href='<?php echo URL("conversation/edit/".$conversation["conversationId"]); ?>' id='control-changeMembersAllowed'><i class='icon-pencil'></i> <?php echo T("Change"); ?></a><?php endif; ?>
 </div>
 <?php endif; ?>
 

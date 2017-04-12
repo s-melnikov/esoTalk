@@ -211,26 +211,20 @@ function minifyJS($js)
  */
 function sendEmail($to, $subject, $body)
 {
-	try {
-		$phpmailer = PATH_LIBRARY.'/vendor/class.phpmailer.php';
-		require_once($phpmailer);
-		$mail = new PHPMailer(true);
+	$phpmailer = PATH_LIBRARY.'/vendor/class.phpmailer.php';
+	require_once($phpmailer);
+	$mail = new PHPMailer(true);
 
-		if ($return = ET::first("sendEmailBefore", array($mail, &$to, &$subject, &$body))) return $return;
+	if ($return = ET::first("sendEmailBefore", array($mail, &$to, &$subject, &$body))) return $return;
 
-		$mail->CharSet = 'UTF-8';
-		$mail->IsHTML(true);
-		$mail->AddAddress($to);
-		$mail->SetFrom(C("esoTalk.emailFrom"), sanitizeForHTTP(C("esoTalk.forumTitle")));
-		$mail->Subject = sanitizeForHTTP($subject);
-		$mail->AltBody = strip_tags($body);
-		$mail->Body = $body;
-		$mail->Encoding = 'quoted-printable';
+	$mail->CharSet = 'UTF-8';
+	$mail->IsHTML(true);
+	$mail->AddAddress($to);
+	$mail->SetFrom(C("esoTalk.emailFrom"), sanitizeForHTTP(C("esoTalk.forumTitle")));
+	$mail->Subject = sanitizeForHTTP($subject);
+	$mail->Body = $body;
 
-		return $mail->Send();
-	} catch (Exception $e) {
-		return false;
-	}
+	return $mail->Send();
 }
 
 
@@ -431,6 +425,20 @@ function slug($string)
 			$string = transliterator_transliterate("Any-Latin; NFD; [:Nonspacing Mark:] Remove; NFC; [:Punctuation:] Remove; Lower();", $string);
 
 		} 
+		elseif (function_exists('iconv')) {
+
+			// IConv won't deal nicely with the following, hence we have to deal with them
+			// manually. Note: even though “scharfes s” is commonly transliterated as “sz”,
+			// in this context “ss” is preferred, as it's the most popular method among German
+			// speakers.
+			$src = array('đ', 'ø', 'ß',  'Đ', 'Ø');
+			$dst = array('d', 'o', 'ss', 'D', 'O');
+			$string = str_replace($src, $dst, $string);
+
+			// Using IConv to get rid of accents. Non-Latin letters are unaffected
+			$string = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $string);
+
+		}
 		else {
 
 			// A fallback to old method.
@@ -448,9 +456,9 @@ function slug($string)
 	ET::trigger("slug", array(&$string));
 
 	// Now replace non-alphanumeric characters with a hyphen, and remove multiple hyphens.
-	$slug = str_replace(' ','-',trim(preg_replace('~[^\\pL\d]+~u',' ',mb_strtolower($string, "UTF-8"))));
+	$slug = strtolower(trim(preg_replace(array("/[^0-9a-z]/i", "/-+/"), "-", $string), "-"));
 
-	return mb_substr($slug, 0, 63, "UTF-8");
+	return substr($slug, 0, 63);
 }
 
 
@@ -845,31 +853,31 @@ function relativeTime($then, $precise = false)
 
 	// If this happened over a year ago, return "x years ago".
 	if ($ago >= ($period = 60 * 60 * 24 * 365.25)) {
-		$years = round($ago / $period);
+		$years = floor($ago / $period);
 		return Ts("%d year ago", "%d years ago", $years);
 	}
 
 	// If this happened over two months ago, return "x months ago".
 	elseif ($ago >= ($period = 60 * 60 * 24 * (365.25 / 12)) * 2) {
-		$months = round($ago / $period);
+		$months = floor($ago / $period);
 		return Ts("%d month ago", "%d months ago", $months);
 	}
 
 	// If this happend over a week ago, return "x weeks ago".
 	elseif ($ago >= ($period = 60 * 60 * 24 * 7)) {
-		$weeks = round($ago / $period);
+		$weeks = floor($ago / $period);
 		return Ts("%d week ago", "%d weeks ago", $weeks);
 	}
 
 	// If this happened over a day ago, return "x days ago".
 	elseif ($ago >= ($period = 60 * 60 * 24)) {
-		$days = round($ago / $period);
+		$days = floor($ago / $period);
 		return Ts("%d day ago", "%d days ago", $days);
 	}
 
 	// If this happened over an hour ago, return "x hours ago".
 	elseif ($ago >= ($period = 60 * 60)) {
-		$hours = round($ago / $period);
+		$hours = floor($ago / $period);
 		return Ts("%d hour ago", "%d hours ago", $hours);
 	}
 
@@ -878,7 +886,7 @@ function relativeTime($then, $precise = false)
 
 		// If this happened over a minute ago, return "x minutes ago".
 		if ($ago >= ($period = 60)) {
-			$minutes = round($ago / $period);
+			$minutes = floor($ago / $period);
 			return Ts("%d minute ago", "%d minutes ago", $minutes);
 		}
 
@@ -1064,10 +1072,23 @@ function addToArrayString(&$array, $key, $value, $position = false)
 }
 
 
-function ensureUtf8($text) {
-    return iconv(mb_detect_encoding($text, mb_detect_order(), true), "UTF-8", $text);
+
+if (function_exists("lcfirst") === false) {
+ 
+/**
+ * Make a string's first character lowercase.
+ * 
+ * NOTE: Is included in PHP 5 >= 5.3.0
+ * 
+ * @param string $str The input string.
+ * @return string 
+ *
+ * @package esoTalk
+ */
+function lcfirst($str)
+{
+	$str[0] = strtolower($str[0]);
+	return $str;
 }
 
-function _strftime($format, $time = null) {
-    return ensureUtf8(strftime($format, $time));
 }

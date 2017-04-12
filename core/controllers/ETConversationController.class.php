@@ -26,7 +26,7 @@ class ETConversationController extends ETController {
 public function action_index($conversationId = false, $year = false, $month = false)
 {
 	if (!$this->allowed()) return;
-
+	
 	// Get the conversation.
 	$conversation = ET::conversationModel()->getById((int)$conversationId);
 
@@ -64,7 +64,7 @@ public function action_index($conversationId = false, $year = false, $month = fa
 	if ($year) {
 
 		// Redirect to the user's oldest unread post.
-		if ($year == "unread" and ET::$session->user) {
+		if ($year == "unread") {
 
 			// Fetch the post ID of the user's oldest unread post (according to $conversation["lastRead"].)
 			$id = ET::SQL()
@@ -112,7 +112,7 @@ public function action_index($conversationId = false, $year = false, $month = fa
 
 			// Make a timestamp out of this date.
 			else $timestamp = mktime(0, 0, 0, min($month, 12), 1, min($year, 2038));
-
+			
 			// Find the closest post that's after this timestamp, and find its position within the conversation.
 			$position = ET::SQL()
 				->select("COUNT(postId)", "position")
@@ -137,7 +137,7 @@ public function action_index($conversationId = false, $year = false, $month = fa
 
 	// Make sure the startFrom number is within range.
 	$startFrom = max(0, $startFrom);
-	if ($this->responseType === RESPONSE_TYPE_DEFAULT) $startFrom = min($startFrom, max(0, $conversation["countPosts"] - 1));
+	if ($this->responseType === RESPONSE_TYPE_DEFAULT) $startFrom = min($startFrom, $conversation["countPosts"] - 1);
 
 	if (ET::$session->userId) {
 
@@ -203,9 +203,12 @@ public function action_index($conversationId = false, $year = false, $month = fa
 		if ($conversation["canModerate"]) {
 			$this->addJSLanguage("Lock", "Unlock", "Sticky", "Unsticky");
 		}
+		if ($conversation["canDeleteConversation"]) {
+			$this->addJSLanguage("message.confirmDelete");
+		}
 		if (ET::$session->user) {
 			$this->addJSLanguage("Starred", "Unstarred", "message.confirmLeave", "message.confirmDiscardPost",
-				"message.confirmDelete", "Ignore conversation", "Unignore conversation", "Controls", "Follow", "Following");
+				"Ignore conversation", "Unignore conversation", "Controls", "Follow", "Following");
 		}
 
 		$this->addJSVar("postsPerPage", C("esoTalk.conversation.postsPerPage"));
@@ -243,7 +246,7 @@ public function action_index($conversationId = false, $year = false, $month = fa
 
 		// If the user has permission to moderate this conversation...
 		if ($conversation["canModerate"]) {
-
+			
 			// Add the sticky/unsticky control.
 			$controls->add("sticky", "<a href='".URL("conversation/sticky/".$conversation["conversationId"]."/?token=".ET::$session->token."&return=".urlencode($this->selfURL))."' id='control-sticky'><i class='icon-pushpin'></i> <span>".T($conversation["sticky"] ? "Unsticky" : "Sticky")."</span></a>");
 
@@ -342,7 +345,7 @@ public function action_start($member = false)
 
 	// If the user is suspended, show an error.
 	if (ET::$session->isSuspended()) {
-		$this->renderMessage(T("Error"), T("message.suspended"));
+		$this->renderMessage("Error!", T("message.suspended"));
 		return;
 	}
 
@@ -352,13 +355,6 @@ public function action_start($member = false)
 
 	// Get a list of channels so that we can check to make sure a valid channel is selected.
 	$channels = ET::channelModel()->get("start");
-
-	// The user not permission to star conversation.
-	if (!$channels){
-		$this->renderMessage(T("Error"), T("message.noPermission"));
-		return;
-	}
-
 	$channelId = $form->validPostBack("content") ? ET::$session->get("channelId") : ET::$session->get("searchChannelId");
 	ET::$session->store("channelId", isset($channels[$channelId]) ? $channelId : reset(array_keys($channels)));
 
@@ -383,7 +379,7 @@ public function action_start($member = false)
 		$this->addJSFile("core/js/autocomplete.js");
 		$this->addJSFile("core/js/conversation.js");
 		$this->addJSVar("mentions", C("esoTalk.format.mentions"));
-		$this->addJSLanguage("message.confirmLeave", "message.confirmDiscardPost", "message.confirmDelete");
+		$this->addJSLanguage("message.confirmLeave", "message.confirmDiscardPost");
 
 		// If there's a member name in the querystring, make the conversation that we're starting private
 		// with them and redirect.
@@ -812,7 +808,7 @@ public function action_membersAllowed($conversationId = false)
 	elseif (!($conversation = $this->getConversation($conversationId))) return;
 
 	// Do we have permission to do this?
-	if (!$conversation["canEditMembersAllowed"]) {
+	if (!$conversation["canModerate"] and ET::$session->userId != $conversation["startMemberId"]) {
 		$this->renderMessage(T("Error"), T("message.noPermission"));
 		return;
 	}
@@ -868,12 +864,6 @@ public function action_addMember($conversationId = false)
 	if (!$conversationId) $conversation = $model->getEmptyConversation();
 	elseif (!($conversation = $this->getConversation($conversationId))) return;
 
-	// Do we have permission to do this?
-	if (!$conversation["canEditMembersAllowed"]) {
-		$this->renderMessage(T("Error"), T("message.noPermission"));
-		return;
-	}
-
 	if ($name = str_replace("\xc2\xa0", " ", R("member"))) {
 
 		// Get an entity's details by parsing the member name.
@@ -928,12 +918,6 @@ public function action_removeMember($conversationId = false)
 	$model = ET::conversationModel();
 	if (!$conversationId) $conversation = $model->getEmptyConversation();
 	elseif (!($conversation = $this->getConversation($conversationId))) return;
-
-	// Do we have permission to do this?
-	if (!$conversation["canEditMembersAllowed"]) {
-		$this->renderMessage(T("Error"), T("message.noPermission"));
-		return;
-	}
 
 	// Get the members allowed in the conversation.
 	$conversation["membersAllowed"] = $model->getMembersAllowed($conversation);
@@ -1182,31 +1166,24 @@ public function action_editPost($postId = false)
 	// Are we saving the post?
 	if ($form->validPostBack("save")) {
 
-		$model = ET::postModel();
-		$model->editPost($post, $form->getValue("content"));
+		ET::postModel()->editPost($post, $form->getValue("content"));
 
-		if ($model->errorCount()) {
-			$this->messages($model->errors(), "warning");
-		} else {
+		$this->trigger("editPostAfter", array(&$post));
 
-			$this->trigger("editPostAfter", array(&$post));
+		// Normally, redirect back to the conversation.
+		if ($this->responseType === RESPONSE_TYPE_DEFAULT) {
+			redirect(URL(R("return", postURL($postId))));
+		}
 
-			// Normally, redirect back to the conversation.
-			if ($this->responseType === RESPONSE_TYPE_DEFAULT) {
-				redirect(URL(R("return", postURL($postId))));
-			}
+		// For an AJAX request, render the post view.
+		elseif ($this->responseType === RESPONSE_TYPE_AJAX) {
+			$this->data("post", $this->formatPostForTemplate($post, $post["conversation"]));
+			$this->render("conversation/post");
+			return;
+		}
 
-			// For an AJAX request, render the post view.
-			elseif ($this->responseType === RESPONSE_TYPE_AJAX) {
-				$this->data("post", $this->formatPostForTemplate($post, $post["conversation"]));
-				$this->render("conversation/post");
-				return;
-			}
-
-			else {
-				// JSON?
-			}
-
+		else {
+			// JSON?
 		}
 
 	}
@@ -1277,7 +1254,7 @@ public function action_restorePost($postId = false)
  * @param array $conversation The details of the conversation which the post is in.
  * @return array A formatted array which can be used in the post template view.
  */
-public function formatPostForTemplate($post, $conversation)
+protected function formatPostForTemplate($post, $conversation)
 {
 	$canEdit = ET::postModel()->canEditPost($post, $conversation);
 	$avatar = avatar($post);
@@ -1286,11 +1263,11 @@ public function formatPostForTemplate($post, $conversation)
 	$formatted = array(
 		"id" => "p".$post["postId"],
 		"title" => memberLink($post["memberId"], $post["username"]),
-		"avatar" => (!$post["deleteTime"] and $avatar) ? "<a href='".URL(memberURL($post["memberId"], $post["username"]))."'>$avatar</a>" : false,
-		"class" => $post["deleteTime"] ? array("deleted") : array(),
+		"avatar" => (!$post["deleteMemberId"] and $avatar) ? "<a href='".URL(memberURL($post["memberId"], $post["username"]))."'>$avatar</a>" : false,
+		"class" => $post["deleteMemberId"] ? array("deleted") : array(),
 		"info" => array(),
 		"controls" => array(),
-		"body" => !$post["deleteTime"] ? $this->displayPost($post["content"]) : false,
+		"body" => !$post["deleteMemberId"] ? $this->displayPost($post["content"]) : false,
 		"footer" => array(),
 
 		"data" => array(
@@ -1302,10 +1279,10 @@ public function formatPostForTemplate($post, $conversation)
 	$date = smartTime($post["time"], true);
 
 	// Add the date/time to the post info as a permalink.
-	$formatted["info"][] = "<a href='".URL(postURL($post["postId"]))."' class='time' title='"._strftime(T("date.full"), $post["time"])."' data-timestamp='".$post["time"]."'>".(!empty($conversation["searching"]) ? T("Show in context") : $date)."</a>";
+	$formatted["info"][] = "<a href='".URL(postURL($post["postId"]))."' class='time' title='".strftime(T("date.full"), $post["time"])."'>".(!empty($conversation["searching"]) ? T("Show in context") : $date)."</a>";
 
 	// If the post isn't deleted, add a lot of stuff!
-	if (!$post["deleteTime"]) {
+	if (!$post["deleteMemberId"]) {
 
 		// Add the user's online status / last action next to their name.
 		if (empty($post["preferences"]["hideOnline"])) {
@@ -1322,7 +1299,7 @@ public function formatPostForTemplate($post, $conversation)
 		}
 
 		// If the post has been edited, show the time and by whom next to the controls.
-		if ($post["editMemberId"]) $formatted["controls"][] = "<span class='editedBy'>".sprintf(T("Edited %s by %s"), "<span title='"._strftime(T("date.full"), $post["editTime"])."' data-timestamp='".$post["editTime"]."'>".relativeTime($post["editTime"], true)."</span>", memberLink($post["editMemberId"], $post["editMemberName"]))."</span>";
+		if ($post["editMemberId"]) $formatted["controls"][] = "<span class='editedBy'>".sprintf(T("Edited %s by %s"), "<span title='".strftime(T("date.full"), $post["editTime"])."'>".relativeTime($post["editTime"], true)."</span>", name($post["editMemberName"]))."</span>";
 
 		// If the user can reply, add a quote control.
 		if ($conversation["canReply"])
@@ -1333,15 +1310,6 @@ public function formatPostForTemplate($post, $conversation)
 			$formatted["controls"][] = "<a href='".URL("conversation/editPost/".$post["postId"])."' title='".T("Edit")."' class='control-edit'><i class='icon-edit'></i></a>";
 			$formatted["controls"][] = "<a href='".URL("conversation/deletePost/".$post["postId"]."?token=".ET::$session->token)."' title='".T("Delete")."' class='control-delete'><i class='icon-remove'></i></a>";
 		}
-		// If the reason the user cannot edit the post is because someone else has replied, then inform them with a tooltip.
-		elseif (!$conversation["locked"]
-			&& !ET::$session->isSuspended()
-			&& $post["memberId"] == ET::$session->userId
-			&& (!$post["deleteMemberId"] || $post["deleteMemberId"] == ET::$session->userId)
-			&& C("esoTalk.conversation.editPostTimeLimit") == "reply") {
-			$formatted["controls"][] = "<span title='".sanitizeHTML(T("message.cannotEditSinceReply"))."' class='control-edit disabled'><i class='icon-edit'></i></span>";
-			$formatted["controls"][] = "<span title='".sanitizeHTML(T("message.cannotEditSinceReply"))."' class='control-delete disabled'><i class='icon-remove'></i></span>";
-		}
 
 	}
 
@@ -1349,7 +1317,7 @@ public function formatPostForTemplate($post, $conversation)
 	else {
 
 		// Add the "deleted by" information.
-		if ($post["deleteMemberId"]) $formatted["controls"][] = "<span>".sprintf(T("Deleted %s by %s"), "<span title='"._strftime(T("date.full"), $post["deleteTime"])."' data-timestamp='".$post["deleteTime"]."'>".relativeTime($post["deleteTime"], true)."</span>", memberLink($post["deleteMemberId"], $post["deleteMemberName"]))."</span>";
+		if ($post["deleteMemberId"]) $formatted["controls"][] = "<span>".sprintf(T("Deleted %s by %s"), "<span title='".strftime(T("date.full"), $post["deleteTime"])."'>".relativeTime($post["deleteTime"], true)."</span>", name($post["deleteMemberName"]))."</span>";
 
 		// If the user can edit the post, add a restore control.
 		if ($canEdit)
@@ -1421,7 +1389,7 @@ protected function getPostForQuoting($postId, $conversationId)
 	$result = $result->firstRow();
 
 	// Convert spaces in the member name to non-breaking spaces.
-	// (Spaces aren't usually allowed in esoTalk usernames, so this is a bit of a "hack" for
+	// (Spaces aren't usually allowed in esoTalk usernames, so this is a bit of a "hack" for 
 	// certain esoTalk installations that do allow them.)
 	$result["username"] = str_replace(" ", "\xc2\xa0", $result["username"]);
 
