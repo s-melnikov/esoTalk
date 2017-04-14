@@ -179,7 +179,8 @@ function avatar($member = array(), $className = "")
 	}
 
 	// Default to an avatar with the first letter of the member's name.
-	return "<span class='avatar $className'>".(!empty($member["username"]) ? strtoupper($member["username"][0]) : "&nbsp;")."</span>";
+	return "<span class='avatar $className'>".(!empty($member["username"]) ?
+		strtoupper(mb_substr($member["username"], 0, 1, 'utf-8')) : " ")."</span>";
 }
 
 }
@@ -316,9 +317,9 @@ function starButton($conversationId, $starred)
 if (!function_exists("label")) {
 
 /**
- * 
  *
- * 
+ *
+ *
  *
  * @package esoTalk
  */

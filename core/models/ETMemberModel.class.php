@@ -70,7 +70,7 @@ public function create(&$values)
 	$values["memberId"] = $memberId;
 
 	$this->trigger("createAfter", array($values));
-	
+
 	// Create "join" activity for this member.
 	ET::activityModel()->create("join", $values);
 
@@ -244,7 +244,7 @@ public function validateUsername($username, $checkForDuplicate = true)
 	if (in_array(strtolower($username), self::$reservedNames)) return "nameTaken";
 
 	// Make sure the username is not too small or large.
-	if (strlen($username) < 3 or strlen($username) > 20) return "invalidUsername";
+	if (mb_strlen($username, 'UTF-8') < 3 or mb_strlen($username, 'UTF-8') > 20) return "invalidUsername";
 
 	// Make sure there's no other member with the same username.
 	if ($checkForDuplicate and ET::SQL()->select("1")->from("member")->where("username=:username")->bind(":username", $username)->exec()->numRows())

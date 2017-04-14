@@ -8,7 +8,7 @@ esoTalk is a free, open-source forum software package built with PHP and MySQL. 
  - **Simple.** All of esoTalk's interfaces are designed around simplicity, ease-of-use, and speed.
  - **Powerful.** Despite its simplicity, a large array of [plugins](http://esotalk.org/plugins) and [skins](http://esotalk.org/skins) are available to extend the functionality of esoTalk.
 
-esoTalk is developed by Toby Zerner in memory of his brother, Simon. 
+esoTalk is developed by Toby Zerner in memory of his brother, Simon.
 
 ### Donate
 

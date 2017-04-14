@@ -1,1 +1,4 @@
-[class*=bbcode-] {margin:-6px -2px; display:inline-block}
+[class*=bbcode-] {
+  margin:-6px -2px;
+  display:inline-block;
+}
